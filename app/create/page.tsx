@@ -2,26 +2,34 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { TONE_OPTIONS, type BrandTone } from "@/lib/brandkit";
 
 export default function CreatePage() {
   const router = useRouter();
   const [businessName, setBusinessName] = useState("");
   const [whatTheySell, setWhatTheySell] = useState("");
   const [targetCustomers, setTargetCustomers] = useState("");
-  const [vibe, setVibe] = useState("");
+  const [tone, setTone] = useState<BrandTone | null>(null);
+  const [vibeDetails, setVibeDetails] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!tone) {
+      setError("กรุณาเลือกโทนของแบรนด์");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessName, whatTheySell, targetCustomers, vibe }),
+        body: JSON.stringify({ businessName, whatTheySell, targetCustomers, tone, vibeDetails }),
       });
 
       const data = await res.json();
@@ -33,7 +41,7 @@ export default function CreatePage() {
       sessionStorage.setItem("brandkit:result", JSON.stringify(data.result));
       sessionStorage.setItem(
         "brandkit:input",
-        JSON.stringify({ businessName, whatTheySell, targetCustomers, vibe }),
+        JSON.stringify({ businessName, whatTheySell, targetCustomers, tone, vibeDetails }),
       );
       router.push("/results");
     } catch (err) {
@@ -91,17 +99,42 @@ export default function CreatePage() {
             />
           </Field>
 
+          <fieldset className="flex flex-col gap-1.5">
+            <legend className="font-heading font-medium text-stone-900">
+              อยากให้แบรนด์ให้ความรู้สึกแบบไหน<span className="ml-1 text-orange-600">*</span>
+            </legend>
+            <p className="text-xs text-stone-500">Tone — เลือกโทนที่ใกล้เคียงที่สุด</p>
+            <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {TONE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setTone(option.value)}
+                  aria-pressed={tone === option.value}
+                  className={`flex flex-col items-start gap-1 rounded-xl border px-4 py-3 text-left transition ${
+                    tone === option.value
+                      ? "border-orange-500 bg-orange-50 ring-2 ring-orange-500/20"
+                      : "border-stone-300 bg-white hover:border-orange-300"
+                  }`}
+                >
+                  <span className="font-heading font-semibold text-stone-900">
+                    {option.th} · {option.en}
+                  </span>
+                  <span className="text-xs text-stone-500">{option.description}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
           <Field
-            label="อยากให้แบรนด์ให้ความรู้สึกแบบไหน"
-            hint="Vibe / feeling — เช่น สนุก, พรีเมียม, ดั้งเดิม"
-            required
+            label="รายละเอียดเพิ่มเติม (ถ้ามี)"
+            hint="Additional details — optional, เช่น สีที่ชอบ/ไม่ชอบ หรือความรู้สึกอื่น ๆ"
           >
             <input
               type="text"
-              value={vibe}
-              onChange={(e) => setVibe(e.target.value)}
-              placeholder="เช่น อบอุ่น เป็นธรรมชาติ พรีเมียมนิด ๆ"
-              required
+              value={vibeDetails}
+              onChange={(e) => setVibeDetails(e.target.value)}
+              placeholder="เช่น อยากให้ดูเป็นธรรมชาติ ไม่เอาสีชมพู"
               maxLength={400}
               className={inputClass}
             />

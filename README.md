@@ -69,9 +69,16 @@ unlocks unlimited saved kits and the Packaging tab's PNG/PDF export.
 
 - `/` — landing page with the pitch and a "Start" button.
 - `/create` — a form where the owner describes their business in Thai (business name is
-  optional; what they sell, who their customers are, and the desired vibe are required).
+  optional; what they sell and who their customers are are required text fields). A required
+  **tone selector** — Playful / Premium / Traditional (`lib/brandkit.ts`'s `TONE_OPTIONS`) — plus
+  an optional free-text "additional details" field drive the brand's palette, fonts, logo style,
+  and voice; see `TONE_GUIDANCE` in `app/api/generate/route.ts` for exactly what each tone changes.
 - `/api/generate` — a Next.js route handler that calls the Anthropic API server-side with a
   structured-output schema (see `lib/brandkit.ts`) and returns the generated brand kit as JSON.
+  The system prompt treats Thai and English as two independent pieces of copywriting (a Thai
+  native copywriter and a separate English localization writer), not source-and-translation, so
+  the Thai doesn't read like it started as English and the English isn't a literal rendering of
+  the Thai — see the "CRITICAL — how to write the two languages" section of `SYSTEM_PROMPT`.
 - `/api/logo` — a separate route handler that takes one logo concept prompt and calls the OpenAI
   Images API (`gpt-image-1`) server-side, returning the generated image as a base64 data URL.
 - `/results` — renders the generated brand kit: color swatches, a live font-pairing preview, the

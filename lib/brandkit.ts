@@ -1,10 +1,35 @@
 import { z } from "zod";
 
+export const BRAND_TONES = ["playful", "premium", "traditional"] as const;
+export type BrandTone = (typeof BRAND_TONES)[number];
+
+export const TONE_OPTIONS: { value: BrandTone; th: string; en: string; description: string }[] = [
+  {
+    value: "playful",
+    th: "สนุกสนาน",
+    en: "Playful",
+    description: "สีสด ฟอนต์กลม ๆ น้ำเสียงร่าเริงเป็นกันเอง",
+  },
+  {
+    value: "premium",
+    th: "พรีเมียม",
+    en: "Premium",
+    description: "โทนสีเรียบหรู ฟอนต์คลาสสิก น้ำเสียงมั่นใจ ประณีต",
+  },
+  {
+    value: "traditional",
+    th: "ดั้งเดิม",
+    en: "Traditional",
+    description: "สีอบอุ่นแบบไทย ฟอนต์มีมรดกทางวัฒนธรรม น้ำเสียงอบอุ่นน่าเชื่อถือ",
+  },
+];
+
 export const BrandFormSchema = z.object({
   businessName: z.string().trim().max(120).optional().default(""),
   whatTheySell: z.string().trim().min(1).max(600),
   targetCustomers: z.string().trim().min(1).max(600),
-  vibe: z.string().trim().min(1).max(400),
+  tone: z.enum(BRAND_TONES),
+  vibeDetails: z.string().trim().max(400).optional().default(""),
 });
 
 export type BrandFormInput = z.infer<typeof BrandFormSchema>;
