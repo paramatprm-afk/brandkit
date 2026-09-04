@@ -61,9 +61,16 @@ from a dashboard.
 - `/login` — email magic-link sign in (Supabase Auth). `/auth/callback` completes the link.
 - `/dashboard` — lists the current user's saved brand kits, each linking to `/results/[id]`.
 - `/results/[id]` — the saved version of a brand kit, loaded from Supabase (Row Level Security
-  ensures a user can only load their own rows) and rendered with the same UI as `/results`,
-  including its previously-generated logo images (no re-generation, no repeat image-API cost)
-  and a delete button.
+  ensures a user can only load their own rows), with two tabs:
+  - **Brand Kit** — the same UI as `/results`, including its previously-generated logo images
+    (no re-generation, no repeat image-API cost), plus a delete button.
+  - **Packaging** — a simple product-label template rendered as inline SVG, auto-filled with the
+    brand's name, colors (an auto-picked background/text/accent role from the 5-color palette —
+    see `lib/packaging.ts`), fonts, and logo (if one was generated). Product name and size are
+    editable and update the preview live. "Download PNG" and "Download PDF" rasterize that SVG
+    to a `<canvas>` (`lib/svg-export.ts`) with the Google Fonts embedded as base64 data URIs first
+    — an `<img>`/blob render of an SVG doesn't pick up the page's own `<link>` stylesheet, so
+    without this the export would silently fall back to a system font.
 - `proxy.ts` — refreshes the Supabase session cookie on every request (Next.js 16 renamed
   `middleware.ts` to `proxy.ts`); required so Server Components see a valid session.
 

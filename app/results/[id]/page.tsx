@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { SupabaseNotConfigured } from "@/components/SupabaseNotConfigured";
-import { BrandKitSections } from "@/components/BrandKitSections";
+import { BrandTabs } from "@/components/BrandTabs";
 import type { BrandKitResult, LogoImage } from "@/lib/brandkit";
 import DeleteBrandButton from "./delete-button";
 
@@ -37,6 +37,7 @@ export default async function SavedBrandPage(props: PageProps<"/results/[id]">) 
 
   const result = brand.kit as BrandKitResult;
   const logos = (brand.logos as LogoImage[] | null) ?? [];
+  const businessName = brand.business_name as string | null;
   const createdAt = new Date(brand.created_at as string);
 
   return (
@@ -45,7 +46,7 @@ export default async function SavedBrandPage(props: PageProps<"/results/[id]">) 
         <header className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-wide text-orange-600">
-              {(brand.business_name as string | null) ?? "แบรนด์ที่บันทึกไว้"}
+              {businessName ?? "แบรนด์ที่บันทึกไว้"}
             </p>
             <h1 className="font-heading text-3xl font-semibold text-stone-900 sm:text-4xl">
               Saved Brand
@@ -65,7 +66,7 @@ export default async function SavedBrandPage(props: PageProps<"/results/[id]">) 
           </div>
         </header>
 
-        <BrandKitSections result={result} initialLogos={logos} />
+        <BrandTabs result={result} initialLogos={logos} businessName={businessName} />
       </div>
     </main>
   );
