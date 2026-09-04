@@ -5,7 +5,9 @@ import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { isProStatus, FREE_BRAND_LIMIT } from "@/lib/subscriptions";
 import { BrandKitSections } from "@/components/BrandKitSections";
+import { UpgradeButton } from "@/components/UpgradeButton";
 import type { BrandFormInput, BrandKitResult, LogoImage } from "@/lib/brandkit";
 
 function subscribe() {
@@ -107,7 +109,12 @@ function SaveBar({
   const [user, setUser] = useState<User | null | undefined>(
     isSupabaseConfigured() ? undefined : null,
   );
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [entitlement, setEntitlement] = useState<{ isPro: boolean; savedCount: number } | null>(
+    null,
+  );
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error" | "limit">(
+    "idle",
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
 
@@ -122,6 +129,26 @@ function SaveBar({
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    // Nothing to reset when logged out: the "log in to save" branch below
+    // renders before entitlement is ever read, so stale state here is inert.
+    if (!user) return;
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("brands").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      supabase.from("subscriptions").select("status").eq("user_id", user.id).maybeSingle(),
+    ]).then(([brandsRes, subRes]) => {
+      setEntitlement({
+        isPro: isProStatus(subRes.data?.status),
+        savedCount: brandsRes.count ?? 0,
+      });
+    });
+  }, [user]);
+
+  const atFreeLimit = Boolean(
+    entitlement && !entitlement.isPro && entitlement.savedCount >= FREE_BRAND_LIMIT,
+  );
 
   const handleSave = useCallback(async () => {
     if (!user) return;
@@ -144,6 +171,10 @@ function SaveBar({
       .single();
 
     if (error || !data) {
+      if (error?.message.includes("FREE_PLAN_LIMIT_REACHED")) {
+        setSaveState("limit");
+        return;
+      }
       setSaveState("error");
       setSaveError(error?.message ?? "บันทึกไม่สำเร็จ กรุณาลองใหม่");
       return;
@@ -167,6 +198,17 @@ function SaveBar({
         >
           เข้าสู่ระบบ · Log in to save
         </Link>
+      </div>
+    );
+  }
+
+  if (saveState === "limit" || atFreeLimit) {
+    return (
+      <div className="flex flex-col items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-stone-700">
+          แผน Free บันทึกแบรนด์คิทได้ {FREE_BRAND_LIMIT} แบรนด์ — อัปเกรดเป็น Pro เพื่อบันทึกได้ไม่จำกัด
+        </p>
+        <UpgradeButton />
       </div>
     );
   }

@@ -4,7 +4,8 @@ Brandkit is an AI brand studio for small Thai business owners. The first feature
 Brand**, takes a short description of a business (in Thai) and generates a starter brand kit:
 name ideas, a color palette, a font pairing, 3 generated logo images, a bilingual tagline, and
 bilingual social media captions. Logged-in users can save a generated kit and revisit it later
-from a dashboard.
+from a dashboard. **Free** accounts can save 1 brand kit; a **Pro** monthly subscription (Stripe)
+unlocks unlimited saved kits and the Packaging tab's PNG/PDF export.
 
 ## Getting Started
 
@@ -19,12 +20,18 @@ from a dashboard.
    - `OPENAI_API_KEY` — get one from [platform.openai.com](https://platform.openai.com/api-keys).
      Used by `app/api/logo/route.ts` (model: `gpt-image-1`) to generate the 3 logo images.
    - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — from your Supabase project's
-     Settings > API. Used for email magic-link auth and saving/loading brand kits. **Optional**:
-     if unset, the generator works exactly as before, just without login/save/dashboard (those
-     routes show a "not configured" message instead of the login/dashboard UI).
+     Settings > API. Used for email magic-link auth and saving/loading brand kits.
+   - `SUPABASE_SERVICE_ROLE_KEY` — same project, Settings > API. Read only by the Stripe webhook
+     to write subscription status, bypassing Row Level Security.
+   - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PRICE_ID` — from your Stripe
+     dashboard. Power the Pro subscription (checkout, billing portal, webhook sync).
 
-   All keys are read server-side only, except the Supabase URL/anon key, which are meant to be
-   public (`NEXT_PUBLIC_*`) and are constrained by Row Level Security — see `supabase/schema.sql`.
+   Everything above is **optional** in the sense that the app degrades gracefully feature-by-
+   feature when a group is unset: with no Supabase config, the generator works exactly as before
+   but login/save/dashboard/pricing routes show a "not configured" message; with Supabase but no
+   Stripe config, login/save/dashboard work but upgrading shows a "not configured" message instead
+   of starting checkout. Only `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` are meant
+   to be public; every other key here is read server-side only.
 
 2. If you're using the save/dashboard feature, set up Supabase:
 
@@ -33,16 +40,30 @@ from a dashboard.
    - Under Authentication > URL Configuration, add `http://localhost:3000/auth/callback` (and
      your production URL's equivalent) as a Redirect URL.
    - Run the SQL in [`supabase/schema.sql`](./supabase/schema.sql) in the Supabase SQL editor to
-     create the `brands` table and its Row Level Security policies.
+     create the `brands` and `subscriptions` tables, their Row Level Security policies, and the
+     trigger that enforces the free plan's 1-brand-kit limit at the database level (so it can't be
+     bypassed by calling the Supabase API directly — see the "Billing" section below).
 
-3. Install dependencies and run the dev server:
+3. If you're using the Pro plan, set up Stripe:
+
+   - Create a Product with a recurring **monthly** Price in the
+     [Stripe dashboard](https://dashboard.stripe.com/products) — copy its Price ID into
+     `STRIPE_PRICE_ID`.
+   - Under Developers > Webhooks, add an endpoint at `<your-app-url>/api/stripe/webhook`
+     subscribed to `checkout.session.completed`, `customer.subscription.updated`, and
+     `customer.subscription.deleted` — copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
+   - For local testing, run `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+     (prints a temporary webhook secret to use instead) and use Stripe's
+     [test card numbers](https://docs.stripe.com/testing) at checkout.
+
+4. Install dependencies and run the dev server:
 
    ```bash
    npm install
    npm run dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000).
+5. Open [http://localhost:3000](http://localhost:3000).
 
 ## How it works
 
@@ -73,6 +94,33 @@ from a dashboard.
     without this the export would silently fall back to a system font.
 - `proxy.ts` — refreshes the Supabase session cookie on every request (Next.js 16 renamed
   `middleware.ts` to `proxy.ts`); required so Server Components see a valid session.
+- `/pricing` — public Free vs. Pro comparison. The Pro price is read live from Stripe
+  (`stripe.prices.retrieve`). The upgrade button starts Stripe Checkout; an existing Pro user sees
+  a "Manage subscription" button (Stripe's Billing Portal) instead.
+
+## Billing & gating
+
+- `app/api/stripe/checkout/route.ts` — starts a Stripe Checkout subscription session for the
+  logged-in user (`customer_email` + `metadata.supabase_user_id` for correlation).
+- `app/api/stripe/portal/route.ts` — opens the Stripe Billing Portal for the user's existing
+  Stripe customer, so they can update payment details or cancel.
+- `app/api/stripe/webhook/route.ts` — verifies the Stripe signature, then upserts the user's plan
+  into `public.subscriptions` on `checkout.session.completed` / `customer.subscription.updated` /
+  `customer.subscription.deleted`, using the Supabase **service role** key to bypass Row Level
+  Security (see `lib/supabase/service.ts`). This is the only place that key is used.
+- **Free plan limit (1 saved brand kit)** is enforced in `supabase/schema.sql` itself — a
+  `before insert` trigger on `public.brands` raises `FREE_PLAN_LIMIT_REACHED` once a non-Pro user
+  already has a row. Saves go through the regular client-side Supabase insert (protected by Row
+  Level Security either way), so enforcing the limit in the database, not just in the UI, means it
+  holds regardless of which client performs the insert. `app/results/page.tsx`'s Save button reads
+  the same plan/count ahead of time for a proactive "upgrade to save more" prompt, and also catches
+  that specific error as a fallback.
+- **Packaging export (PNG/PDF)** is gated per-request: `/results/[id]/page.tsx` looks up the
+  user's plan server-side (`lib/subscriptions.ts`) and passes `isPro` down to `PackagingLabel`,
+  which shows the live label preview either way but only renders the working Download buttons —
+  and only runs the export function — when `isPro` is true. Unlike the save limit, this one is
+  enforced in the UI layer rather than the database: exporting has no server cost (it's pure
+  client-side canvas rendering, no API calls), so there was nothing worth protecting server-side.
 
 ## Learn More
 

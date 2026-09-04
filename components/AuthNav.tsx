@@ -38,6 +38,9 @@ export function AuthNav() {
         Brandkit
       </Link>
       <nav className="flex items-center gap-4 text-sm">
+        <Link href="/pricing" className="text-stone-600 hover:text-orange-700">
+          ราคา · Pricing
+        </Link>
         {user === undefined ? null : user ? (
           <>
             <Link href="/dashboard" className="text-stone-600 hover:text-orange-700">

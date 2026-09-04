@@ -5,6 +5,7 @@ import type { BrandKitResult, LogoImage } from "@/lib/brandkit";
 import { googleFontsUrl } from "@/lib/brandkit";
 import { pickLabelPalette, slugify } from "@/lib/packaging";
 import { renderSvgToCanvas, downloadBlob } from "@/lib/svg-export";
+import { UpgradeButton } from "@/components/UpgradeButton";
 
 const LABEL_WIDTH = 400;
 const LABEL_HEIGHT = 560;
@@ -14,10 +15,12 @@ export function PackagingLabel({
   result,
   businessName,
   logo,
+  isPro,
 }: {
   result: BrandKitResult;
   businessName: string | null;
   logo: LogoImage;
+  isPro: boolean;
 }) {
   const [productName, setProductName] = useState("");
   const [size, setSize] = useState("");
@@ -29,7 +32,7 @@ export function PackagingLabel({
   const colors = pickLabelPalette(result.palette);
 
   async function handleExport(format: "png" | "pdf") {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !isPro) return;
     setExporting(format);
     setExportError(null);
     try {
@@ -224,22 +227,31 @@ export function PackagingLabel({
           </text>
         </svg>
 
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <button
-            onClick={() => handleExport("png")}
-            disabled={exporting !== null}
-            className="rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {exporting === "png" ? "กำลังส่งออก…" : "ดาวน์โหลด PNG"}
-          </button>
-          <button
-            onClick={() => handleExport("pdf")}
-            disabled={exporting !== null}
-            className="rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 shadow-sm transition hover:border-orange-400 hover:text-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {exporting === "pdf" ? "กำลังส่งออก…" : "ดาวน์โหลด PDF"}
-          </button>
-        </div>
+        {isPro ? (
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => handleExport("png")}
+              disabled={exporting !== null}
+              className="rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {exporting === "png" ? "กำลังส่งออก…" : "ดาวน์โหลด PNG"}
+            </button>
+            <button
+              onClick={() => handleExport("pdf")}
+              disabled={exporting !== null}
+              className="rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 shadow-sm transition hover:border-orange-400 hover:text-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {exporting === "pdf" ? "กำลังส่งออก…" : "ดาวน์โหลด PDF"}
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-orange-200 bg-orange-50 px-6 py-4 text-center">
+            <p className="text-sm text-stone-700">
+              อัปเกรดเป็น Pro เพื่อดาวน์โหลดฉลากเป็น PNG และ PDF
+            </p>
+            <UpgradeButton />
+          </div>
+        )}
         {exportError && <p className="text-sm text-red-600">{exportError}</p>}
       </div>
 

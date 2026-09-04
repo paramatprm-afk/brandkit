@@ -2,7 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getIsPro, FREE_BRAND_LIMIT } from "@/lib/subscriptions";
 import { SupabaseNotConfigured } from "@/components/SupabaseNotConfigured";
+import { UpgradeButton } from "@/components/UpgradeButton";
+import { ManageSubscriptionButton } from "@/components/ManageSubscriptionButton";
 import type { BrandKitResult } from "@/lib/brandkit";
 
 export default async function DashboardPage() {
@@ -19,10 +22,14 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { data: brands } = await supabase
-    .from("brands")
-    .select("id, business_name, kit, created_at")
-    .order("created_at", { ascending: false });
+  const [{ data: brands }, isPro] = await Promise.all([
+    supabase.from("brands").select("id, business_name, kit, created_at").order("created_at", {
+      ascending: false,
+    }),
+    getIsPro(supabase, user.id),
+  ]);
+
+  const savedCount = brands?.length ?? 0;
 
   return (
     <main className="flex-1 px-6 py-16">
@@ -43,6 +50,24 @@ export default async function DashboardPage() {
             + สร้างแบรนด์ใหม่ · New brand
           </Link>
         </header>
+
+        <div className="mt-6 flex flex-col items-start gap-3 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          {isPro ? (
+            <>
+              <p className="text-sm font-medium text-stone-900">
+                แผน Pro ✓ · บันทึกแบรนด์ได้ไม่จำกัด และส่งออกแพ็กเกจจิ้งได้
+              </p>
+              <ManageSubscriptionButton />
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-stone-700">
+                แผน Free · บันทึกแล้ว {savedCount}/{FREE_BRAND_LIMIT} แบรนด์
+              </p>
+              <UpgradeButton>อัปเกรดเป็น Pro · Upgrade</UpgradeButton>
+            </>
+          )}
+        </div>
 
         {!brands || brands.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">

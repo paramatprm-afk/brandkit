@@ -9,10 +9,12 @@ export function BrandTabs({
   result,
   initialLogos,
   businessName,
+  isPro,
 }: {
   result: BrandKitResult;
   initialLogos?: LogoImage[] | null;
   businessName: string | null;
+  isPro: boolean;
 }) {
   const [tab, setTab] = useState<"kit" | "packaging">("kit");
   const firstLogo = initialLogos?.find((logo): logo is string => Boolean(logo)) ?? null;
@@ -33,7 +35,7 @@ export function BrandTabs({
           <BrandKitSections result={result} initialLogos={initialLogos} />
         </div>
       ) : (
-        <PackagingLabel result={result} businessName={businessName} logo={firstLogo} />
+        <PackagingLabel result={result} businessName={businessName} logo={firstLogo} isPro={isPro} />
       )}
     </div>
   );

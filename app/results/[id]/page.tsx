@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { SupabaseNotConfigured } from "@/components/SupabaseNotConfigured";
 import { BrandTabs } from "@/components/BrandTabs";
+import { getIsPro } from "@/lib/subscriptions";
 import type { BrandKitResult, LogoImage } from "@/lib/brandkit";
 import DeleteBrandButton from "./delete-button";
 
@@ -35,6 +36,7 @@ export default async function SavedBrandPage(props: PageProps<"/results/[id]">) 
     notFound();
   }
 
+  const isPro = await getIsPro(supabase, user.id);
   const result = brand.kit as BrandKitResult;
   const logos = (brand.logos as LogoImage[] | null) ?? [];
   const businessName = brand.business_name as string | null;
@@ -66,7 +68,7 @@ export default async function SavedBrandPage(props: PageProps<"/results/[id]">) 
           </div>
         </header>
 
-        <BrandTabs result={result} initialLogos={logos} businessName={businessName} />
+        <BrandTabs result={result} initialLogos={logos} businessName={businessName} isPro={isPro} />
       </div>
     </main>
   );
