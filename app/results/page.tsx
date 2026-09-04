@@ -1,8 +1,13 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { BrandKitResult } from "@/lib/brandkit";
+
+type LogoState =
+  | { status: "loading" }
+  | { status: "done"; imageDataUrl: string }
+  | { status: "error"; message: string };
 
 function subscribe() {
   return () => {};
@@ -124,16 +129,7 @@ export default function ResultsPage() {
         </Section>
 
         <Section title="แนวคิดโลโก้" subtitle="Logo concepts">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {result.logoConcepts.map((concept, i) => (
-              <div key={i} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-orange-600">
-                  Concept {i + 1}
-                </p>
-                <p className="text-sm leading-relaxed text-stone-700">{concept}</p>
-              </div>
-            ))}
-          </div>
+          <LogoConceptsSection concepts={result.logoConcepts} />
         </Section>
 
         <Section title="แคปชันโซเชียล" subtitle="Social media posts">
@@ -165,6 +161,144 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function LogoConceptsSection({ concepts }: { concepts: string[] }) {
+  const [logos, setLogos] = useState<LogoState[]>(() => concepts.map(() => ({ status: "loading" })));
+
+  useEffect(() => {
+    const controllers = concepts.map(() => new AbortController());
+
+    async function generate(index: number) {
+      setLogos((prev) => prev.map((l, i) => (i === index ? { status: "loading" } : l)));
+      try {
+        const res = await fetch("/api/logo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: concepts[index] }),
+          signal: controllers[index].signal,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "สร้างโลโก้ไม่สำเร็จ");
+        setLogos((prev) =>
+          prev.map((l, i) => (i === index ? { status: "done", imageDataUrl: data.imageDataUrl } : l)),
+        );
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setLogos((prev) =>
+          prev.map((l, i) =>
+            i === index
+              ? { status: "error", message: err instanceof Error ? err.message : "สร้างโลโก้ไม่สำเร็จ" }
+              : l,
+          ),
+        );
+      }
+    }
+
+    concepts.forEach((_, i) => generate(i));
+
+    return () => {
+      controllers.forEach((c) => c.abort());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [concepts.join("|")]);
+
+  function retry(index: number) {
+    const controller = new AbortController();
+    setLogos((prev) => prev.map((l, i) => (i === index ? { status: "loading" } : l)));
+    fetch("/api/logo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: concepts[index] }),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "สร้างโลโก้ไม่สำเร็จ");
+        setLogos((prev) =>
+          prev.map((l, i) => (i === index ? { status: "done", imageDataUrl: data.imageDataUrl } : l)),
+        );
+      })
+      .catch((err) => {
+        setLogos((prev) =>
+          prev.map((l, i) =>
+            i === index
+              ? { status: "error", message: err instanceof Error ? err.message : "สร้างโลโก้ไม่สำเร็จ" }
+              : l,
+          ),
+        );
+      });
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {concepts.map((concept, i) => (
+        <LogoCard
+          key={i}
+          index={i}
+          concept={concept}
+          state={logos[i]}
+          onRetry={() => retry(i)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function LogoCard({
+  index,
+  concept,
+  state,
+  onRetry,
+}: {
+  index: number;
+  concept: string;
+  state: LogoState;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+      <div className="flex aspect-square items-center justify-center bg-[repeating-conic-gradient(#f5f5f4_0%_25%,#ffffff_0%_50%)] bg-[length:16px_16px]">
+        {state.status === "loading" && (
+          <span className="h-8 w-8 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" />
+        )}
+        {state.status === "error" && (
+          <div className="flex flex-col items-center gap-2 px-4 text-center">
+            <p className="text-xs text-red-600">{state.message}</p>
+            <button
+              onClick={onRetry}
+              className="rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-600 transition hover:border-orange-400 hover:text-orange-700"
+            >
+              ลองใหม่ · Retry
+            </button>
+          </div>
+        )}
+        {state.status === "done" && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={state.imageDataUrl}
+            alt={`Logo concept ${index + 1}`}
+            className="h-full w-full object-contain p-4"
+          />
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-3 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">
+          Concept {index + 1}
+        </p>
+        <p className="text-sm leading-relaxed text-stone-700">{concept}</p>
+        {state.status === "done" && (
+          <a
+            href={state.imageDataUrl}
+            download={`brandkit-logo-concept-${index + 1}.png`}
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
+          >
+            ดาวน์โหลด · Download
+          </a>
+        )}
+      </div>
+    </div>
   );
 }
 
