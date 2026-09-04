@@ -47,3 +47,23 @@ export const BrandKitResultSchema = z.object({
 });
 
 export type BrandKitResult = z.infer<typeof BrandKitResultSchema>;
+
+/** A logo image, once generated: a data URL, or null while missing/loading/failed. */
+export type LogoImage = string | null;
+
+/** Row shape of the public.brands table (see supabase/schema.sql). */
+export interface SavedBrandRow {
+  id: string;
+  user_id: string;
+  business_name: string | null;
+  input: BrandFormInput;
+  kit: BrandKitResult;
+  logos: LogoImage[];
+  created_at: string;
+}
+
+export function googleFontsUrl(fonts: { heading: string; body: string }) {
+  return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+    fonts.heading,
+  )}:wght@500;700&family=${encodeURIComponent(fonts.body)}:wght@400;500&display=swap`;
+}

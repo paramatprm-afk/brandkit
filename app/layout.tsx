@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Prompt, Noto_Sans_Thai } from "next/font/google";
+import { AuthNav } from "@/components/AuthNav";
 import "./globals.css";
 
 const prompt = Prompt({
@@ -26,7 +27,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="th"
       className={`${prompt.variable} ${notoSansThai.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#FFFBF5] text-stone-900">{children}</body>
+      <body className="min-h-full flex flex-col bg-[#FFFBF5] text-stone-900">
+        <AuthNav />
+        {children}
+      </body>
     </html>
   );
 }
